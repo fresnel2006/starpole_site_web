@@ -34,6 +34,16 @@ npm run lint
 
 Appels voix et vidéo, notifications, contacts du téléphone.
 
-## Mettre en ligne
+## En ligne
 
-Hébergement gratuit possible sur Firebase Hosting ou Vercel. Avant, ajouter l'adresse du site à la variable `ORIGINES_ADMIN` du serveur sur Vercel (sinon le navigateur refuse les appels au serveur : code de connexion, vérification IA). En local, `http://localhost:5173` est déjà autorisé.
+Le site est hébergé gratuitement sur Firebase Hosting (site `starpole-web` du projet `starpole-3d84d`) :
+https://starpole-web.web.app
+
+Pour redéployer après une modification :
+
+```
+npm run build
+firebase deploy --only hosting --project starpole-3d84d
+```
+
+Le serveur FastAPI autorise cette adresse (CORS). Pour la connexion Google, l'adresse doit aussi être dans Firebase Authentication, Paramètres, Domaines autorisés.
