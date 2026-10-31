@@ -3,9 +3,11 @@ import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import {
   GoogleAuthProvider,
   getAdditionalUserInfo,
+  getRedirectResult,
   onAuthStateChanged,
   signInWithCustomToken,
   signInWithPopup,
+  signInWithRedirect,
   signOut,
   updateProfile,
 } from 'firebase/auth'
@@ -21,6 +23,13 @@ export function FournisseurAuth({ children }) {
   const [profil, setProfil] = useState(null)
 
   useEffect(() => onAuthStateChanged(auth, setUtilisateur), [])
+
+  // Retour de Google après une connexion par redirection (fenêtre bloquée).
+  useEffect(() => {
+    getRedirectResult(auth)
+      .then((resultat) => resultat && creerProfilSiNouveau(resultat))
+      .catch((e) => console.error('Connexion Google :', e.code))
+  }, [])
 
   // Le profil Firestore, en direct.
   useEffect(() => {
@@ -114,25 +123,48 @@ export async function verifierCode(email, code, nom) {
   await signInWithCustomToken(auth, donnees.jetonPersonnalise)
 }
 
-/** Connexion Google (jamais de code : Google a déjà vérifié l'e-mail). */
+// Messages clairs pour les erreurs de connexion Google.
+const ERREURS_GOOGLE = {
+  'auth/unauthorized-domain':
+    "Cette adresse n'est pas encore autorisée pour la connexion Google (Firebase, Domaines autorisés).",
+  'auth/operation-not-allowed': "La connexion Google n'est pas activée dans Firebase.",
+  'auth/network-request-failed': 'Pas de connexion internet. Réessayez.',
+  'auth/too-many-requests': 'Trop de tentatives. Patientez un peu, puis réessayez.',
+  'auth/user-disabled': 'Ce compte a été suspendu.',
+  'auth/account-exists-with-different-credential':
+    'Un compte existe déjà avec cet e-mail. Connectez-vous avec votre e-mail et le code.',
+  'auth/internal-error': 'Google a refusé la connexion depuis ce navigateur. Réessayez.',
+}
+
+async function creerProfilSiNouveau(resultat) {
+  if (!getAdditionalUserInfo(resultat)?.isNewUser) return
+  const u = resultat.user
+  await setDoc(doc(base, 'utilisateurs', u.uid), {
+    nom: u.displayName ?? '',
+    telephone: '',
+    email: u.email ?? '',
+    telephoneNormalise: '',
+    emailNormalise: normaliserEmail(u.email ?? ''),
+    creeLe: serverTimestamp(),
+  }).catch(() => {})
+}
+
+/** Connexion Google (jamais de code : Google a déjà vérifié l'e-mail). Si le
+ * navigateur bloque la fenêtre Google, la page part chez Google et revient. */
 export async function connecterAvecGoogle() {
+  const fournisseur = new GoogleAuthProvider()
+  fournisseur.setCustomParameters({ prompt: 'select_account' })
   try {
-    const resultat = await signInWithPopup(auth, new GoogleAuthProvider())
-    if (getAdditionalUserInfo(resultat)?.isNewUser) {
-      const u = resultat.user
-      await setDoc(doc(base, 'utilisateurs', u.uid), {
-        nom: u.displayName ?? '',
-        telephone: '',
-        email: u.email ?? '',
-        telephoneNormalise: '',
-        emailNormalise: normaliserEmail(u.email ?? ''),
-        creeLe: serverTimestamp(),
-      }).catch(() => {})
-    }
+    await creerProfilSiNouveau(await signInWithPopup(auth, fournisseur))
     return true
   } catch (e) {
     if (e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request') return false
-    throw new Error('Connexion Google impossible. Réessayez.')
+    if (e.code === 'auth/popup-blocked' || e.code === 'auth/operation-not-supported-in-this-environment') {
+      await signInWithRedirect(auth, fournisseur)
+      return false
+    }
+    console.error('Connexion Google :', e.code, e.message)
+    throw new Error(ERREURS_GOOGLE[e.code] || `Connexion Google impossible (${e.code || 'erreur inconnue'}). Réessayez.`)
   }
 }
 
