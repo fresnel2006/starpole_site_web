@@ -9,7 +9,8 @@
 .connexion-etoile { width: 56px; margin-bottom: 18px; filter: drop-shadow(0 4px 14px rgba(0,0,0,0.4)); }
 .connexion-formulaire { display: flex; align-items: center; justify-content: center; padding: 40px 24px; }
 .connexion-boite { width: 100%; max-width: 400px; }
-.connexion-logo { width: 210px; height: 92px; object-fit: cover; margin: 0 0 4px -16px; }
+.connexion-logo { display: block; width: 210px; height: 92px; object-fit: cover; margin: 0 auto 4px; }
+.connexion-boite > .marque { display: block; text-align: center; }
 .onglets { display: flex; background: var(--fond-2); border-radius: 14px; padding: 4px; margin-top: 26px; }
 .onglets button { flex: 1; border: 0; background: none; padding: 10px; border-radius: 11px; font-weight: 700; cursor: pointer; color: var(--texte-2); }
 .onglets button.actif { background: #fff; color: var(--texte); box-shadow: var(--ombre); }
